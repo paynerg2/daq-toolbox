@@ -4,8 +4,6 @@
     {
         AnalogSingleSample,
         DigitalLine,
-        DigitalPort,
-        AnalogFunction,
-        DigitalFunction
+        AnalogFunction
     }
 }
