@@ -1,12 +1,12 @@
 ﻿using DAQToolbox.Business;
 using DAQToolbox.Models.Interfaces;
 using NationalInstruments.DAQmx;
+using System;
 
 namespace DAQToolbox.Models
 {
-    public class AnalogVoltageWriter : IVoltageWriter
+    public class FunctionWriter : IVoltageWriter
     {
-        #region Fields
         protected readonly NationalInstruments.DAQmx.Task _daqTask = new Task();
         protected AnalogSingleChannelWriter _writer;
 
@@ -14,30 +14,27 @@ namespace DAQToolbox.Models
         private readonly int maximumValue = 10;
         private readonly AOVoltageUnits units = AOVoltageUnits.Volts;
 
-        public bool AutoStart { get; set; } = true;
-        public string PhysicalChannelName { get; set; }
-        public bool IsInitialized { get; set; } = false;
-        public double OutputValue { get; set; }
-        #endregion
+        public bool AutoStart { get; set; }
+        public string PhysicalChannelName { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public bool IsInitialized { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public double[] OutputValues { get; set; }
 
-        // TODO: Inject the eventual logging interface through ctor
-        public AnalogVoltageWriter(string physicalChannelName)
+        public FunctionWriter(string physicalChannelName)
         {
             if (string.IsNullOrWhiteSpace(physicalChannelName))
             {
-                throw new System.ArgumentException(Constants.ErrorMessages.INVALID_CHANNEL, 
+                throw new ArgumentException(Constants.ErrorMessages.INVALID_CHANNEL,
                     nameof(physicalChannelName));
             }
 
-            this.PhysicalChannelName = physicalChannelName;
+            PhysicalChannelName = physicalChannelName;
         }
 
-        #region Public Methods
         public void TryInitialize()
         {
             try
             {
-                _daqTask.AOChannels.CreateVoltageChannel(PhysicalChannelName, nameToAssignChannel: PhysicalChannelName, 
+                _daqTask.AOChannels.CreateVoltageChannel(PhysicalChannelName, nameToAssignChannel: PhysicalChannelName,
                     minimumValue, maximumValue, units);
                 DaqStream stream = _daqTask.Stream ?? throw new DaqException(Constants.ErrorMessages.INVALID_STREAM);
 
@@ -55,15 +52,17 @@ namespace DAQToolbox.Models
             if (!IsInitialized) TryInitialize();
             try
             {
-                WriteAnalogSingleValueOutput(OutputValue);
+                WriteAnalogFunction(OutputValues);
             }
             catch (DaqException ex)
             {
-                Stop(ex);
-            }
+                Stop(ex);            }
         }
 
-        
+        private void WriteAnalogFunction(double[] outputValues)
+        {
+            _writer.WriteMultiSample(AutoStart, outputValues);
+        }
 
         public void Stop()
         {
@@ -72,23 +71,12 @@ namespace DAQToolbox.Models
                 _daqTask.Stop();
                 _daqTask.Dispose();
             }
-            
         }
 
         public void Stop(DaqException ex)
         {
-            //TODO: Log exception
+            //Log exception
             Stop();
         }
-
-
-        #endregion
-
-        #region Private Methods
-        private void WriteAnalogSingleValueOutput(double outputValue)
-        {
-            _writer.WriteSingleSample(AutoStart, outputValue);
-        }
-        #endregion
     }
 }

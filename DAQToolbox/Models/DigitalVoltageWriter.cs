@@ -1,17 +1,19 @@
-﻿using DAQToolbox.Models.Interfaces;
+﻿using DAQToolbox.Business;
+using DAQToolbox.Models.Interfaces;
 using NationalInstruments.DAQmx;
 using System;
 
 namespace DAQToolbox.Models
 {
-    public class DigitalVoltageWriter : IVoltageWriter<bool>
+    public class DigitalVoltageWriter : IVoltageWriter
     {
         #region Fields
-        private readonly NationalInstruments.DAQmx.Task _daqTask = new Task();
-
-        private readonly string physicalChannelName;
-
+        protected readonly NationalInstruments.DAQmx.Task _daqTask = new Task();
+        protected DigitalSingleChannelWriter _writer;
         public bool AutoStart { get; set; }
+        public string PhysicalChannelName { get; set; }
+        public bool IsInitialized { get; set; } = false;
+        public bool OutputValue { get; set; }
 
         #endregion
 
@@ -19,19 +21,23 @@ namespace DAQToolbox.Models
         {
             if (string.IsNullOrWhiteSpace(physicalChannelName))
             {
-                throw new ArgumentException("Channel name not recognized", nameof(physicalChannelName));
+                throw new ArgumentException(Constants.ErrorMessages.INVALID_CHANNEL, nameof(physicalChannelName));
             }
 
-            this.physicalChannelName = physicalChannelName;
+            this.PhysicalChannelName = physicalChannelName;
         }
 
         #region Public Methods
-        public void Initialize()
+        public void TryInitialize()
         {
             try
             {
-                _daqTask.DOChannels.CreateChannel(physicalChannelName, nameToAssign: "",
+                _daqTask.DOChannels.CreateChannel(PhysicalChannelName, nameToAssign: PhysicalChannelName,
                         ChannelLineGrouping.OneChannelForEachLine);
+                DaqStream stream = _daqTask.Stream ?? throw new DaqException(Constants.ErrorMessages.INVALID_STREAM);
+
+                _writer = new DigitalSingleChannelWriter(stream);
+                this.IsInitialized = true;
             }
             catch (DaqException ex)
             {
@@ -39,11 +45,12 @@ namespace DAQToolbox.Models
             }
         }
 
-        public void Write(bool outputValue)
+        public void Write()
         {
+            if (!IsInitialized) TryInitialize();
             try
             {
-                WriteDigitalSingleValueOutput(outputValue);
+                WriteDigitalSingleValueOutput(OutputValue);
             }
             catch (DaqException ex)
             {
@@ -53,6 +60,7 @@ namespace DAQToolbox.Models
 
         public void Stop()
         {
+            this.IsInitialized = false;
             if (_daqTask != null)
             {
                 _daqTask.Stop();
@@ -71,11 +79,7 @@ namespace DAQToolbox.Models
         #region Private Methods
         private void WriteDigitalSingleValueOutput(bool outputValue)
         {
-            DaqStream stream = _daqTask.Stream;
-            if (stream == null) return;
-
-            var writer = new DigitalSingleChannelWriter(stream);
-            writer.WriteSingleSampleSingleLine(AutoStart, outputValue);
+            _writer.WriteSingleSampleSingleLine(AutoStart, outputValue);
         }
         #endregion
     }
