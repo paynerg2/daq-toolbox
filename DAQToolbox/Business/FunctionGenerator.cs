@@ -5,18 +5,12 @@ namespace DAQToolbox.Business
 {
     public class FunctionGenerator
     {
-        private const int MAXIMUM_BUFFER_SIZE = 8191;
-
+        protected Buffer buffer = new Buffer();
         protected FunctionSpecs FunctionSpecs { get; set; }
-        
-        public FunctionGenerator(FunctionSpecs functionSpecs)
-        {
-            this.FunctionSpecs = functionSpecs;
-        }
 
         public double[] GetWaveform()
         {
-            int bufferSize = CalcBufferSize();
+            int bufferSize = buffer.CalculateBufferSize(FunctionSpecs.Frequency);
 
             double[] waveformData = FunctionSpecs.WaveformType switch
             {
@@ -27,15 +21,6 @@ namespace DAQToolbox.Business
             };
 
             return ClipToTenVolts(waveformData);
-        }
-
-
-        private int CalcBufferSize() 
-        {
-            // While f > 109Hz, we have to use the maximum sample rate: 900 kS/s, so we
-            // adjust the number of points in the waveform (worst case: 9 points for 100kHz)
-            return FunctionSpecs.Frequency > 109 ? MAXIMUM_BUFFER_SIZE : 
-                                                    FunctionSpecs.Frequency / MAXIMUM_BUFFER_SIZE; 
         }
 
         private double[] GenerateSineWave(int bufferSize)
